@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De Giro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #fff;
+            color: #202124;
+            padding: 16px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            .stats-top-row {
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .period-info-grid {
+                gap: 16px;
+            }
+        }
+
+        .chart-wrapper {
+            background: #fff;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+        }
+
+        canvas {
+            display: block;
+            max-height: 500px;
+            -webkit-touch-callout: none;
+        }
+
+        @media (max-width: 768px) {
+            canvas {
+                max-height: 300px;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #5f6368;
+            font-size: 16px;
+        }
+
+        .error {
+            background: #fce8e6;
+            border: 1px solid #f4cccc;
+            color: #c5221f;
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        .stats {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #dadce0;
+        }
+
+        .stats {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #dadce0;
+        }
+
+        .stats-top-row {
+            display: flex;
+            gap: 64px;
+            margin-bottom: 24px;
+            align-items: stretch;
+        }
+
+        .current-profit-section {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .current-value-label {
+            font-size: 12px;
+            color: #5f6368;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .current-value {
+            font-size: 32px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .current-value {
+                font-size: 24px;
+            }
+
+            .current-value-label {
+                font-size: 11px;
+            }
+
+            .info-label {
+                font-size: 11px;
+            }
+
+            .info-value {
+                font-size: 14px;
+            }
+        }
+
+        .period-info-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .period-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            width: 100%;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #5f6368;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 500;
+            color: #202124;
+        }
+
+        .info-value.change {
+            font-size: 16px;
+        }
+
+        .info-value.change.positive {
+            color: #0f9d58;
+        }
+
+        .info-value.change.negative {
+            color: #d33b27;
+        }
+
+        .change-info {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .change {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .change.positive {
+            color: #0f9d58;
+        }
+
+        .change.negative {
+            color: #d33b27;
+        }
+
+        .period-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .period-btn {
+            padding: 8px 16px;
+            border: 1px solid #dadce0;
+            background: #fff;
+            color: #5f6368;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .period-btn:active {
+            background: #f0f0f0;
+        }
+
+        @media (max-width: 768px) {
+            .period-btn {
+                padding: 10px 14px;
+                font-size: 12px;
+            }
+        }
+
+        .period-btn:hover {
+            border-color: #5f6368;
+            color: #202124;
+        }
+
+        .period-btn.active {
+            background: #1f2937;
+            color: #fff;
+            border-color: #1f2937;
+        }
+
+        .chart-container {
+            position: relative;
+        }
+
+        .selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(66, 133, 244, 0.15);
+            border: 1px solid rgba(66, 133, 244, 0.3);
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+        }
+
+        .selection-hint {
+            font-size: 12px;
+            color: #5f6368;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .clear-selection-btn {
+            padding: 8px 16px;
+            border: 1px solid #dadce0;
+            background: #fff;
+            color: #5f6368;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin-left: 12px;
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .clear-selection-btn:active {
+            background: #f0f0f0;
+        }
+
+        @media (max-width: 768px) {
+            .clear-selection-btn {
+                margin-left: 0;
+                margin-top: 8px;
+                width: 100%;
+            }
+        }
+
+        .clear-selection-btn:hover {
+            border-color: #5f6368;
+            color: #202124;
+        }
+
+        .refresh-info {
+            margin-top: 16px;
+            font-size: 12px;
+            color: #5f6368;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="errorContainer"></div>
+
+        <div class="chart-wrapper">
+            <div id="stats" class="stats" style="display: none;">
+                <div class="stats-top-row">
+                    <div class="current-profit-section">
+                        <div class="current-value-label">Current profit</div>
+                        <div class="current-value" id="currentValue">-</div>
+                    </div>
+                    <div class="period-info-section">
+                        <div class="period-info-grid">
+                            <div class="info-item">
+                                <div class="info-label">Period</div>
+                                <div class="info-value" id="periodRange">-</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Change</div>
+                                <div class="info-value change" id="periodChange">-</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Period lowest</div>
+                                <div class="info-value" id="periodLow">-</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Period highest</div>
+                                <div class="info-value" id="periodHigh">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="period-buttons" id="periodButtons"></div>
+                <button class="clear-selection-btn" id="clearSelectionBtn" style="display: none;">Clear Selection</button>
+            </div>
+
+            <div id="loadingMessage" class="loading">Loading data...</div>
+            <div class="chart-container">
+                <canvas id="chart" style="display: none;"></canvas>
+                <div class="selection-overlay" id="selectionOverlay"></div>
+            </div>
+        </div>
+
+        <div class="refresh-info" id="refreshInfo"></div>
+    </div>
+
+    <script>
+        let chart = null;
+        let allDates = [];
+        let allValues = [];
+        let rawData = [];
+        let currentDisplayedDates = [];
+        let currentDisplayedValues = [];
+        let isSelecting = false;
+        let selectionStart = null;
+        let hasManualSelection = false;
+
+        const periods = [
+            { label: '1D', days: 1 },
+            { label: '5D', days: 5 },
+            { label: '1M', days: 30 },
+            { label: '3M', days: 90 },
+            { label: '1Y', days: 365 },
+            { label: '3Y', days: 1095 },
+            { label: '5Y', days: 1825 },
+            { label: 'ALL', days: null }
+        ];
+
+        async function fetchData() {
+            try {
+                const url = 'https://script.google.com/macros/s/AKfycbzh9SaIPbm9XtwBAvAAqYEFCmrwAfQ0Ef6uzhuwVQkM0-wJoDggHEe8c0_rl0e03c2H/exec?password=Jo3r1!';
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                rawData = await response.json();
+
+                // Clear error message if data loads successfully
+                document.getElementById('errorContainer').innerHTML = '';
+
+                // Parse data - expected format: [[date, value], [date, value], ...]
+                if (!Array.isArray(rawData) || rawData.length === 0) {
+                    throw new Error('No data available');
+                }
+
+                allDates = [];
+                allValues = [];
+
+                for (const [date, value] of rawData) {
+                    allDates.push(date);
+                    allValues.push(value);
+                }
+
+                createPeriodButtons();
+                displayChartForPeriod('ALL');
+                updateRefreshInfo();
+
+            } catch (error) {
+                showError(`Error loading data: ${error.message}`);
+                console.error('Fetch error:', error);
+            }
+        }
+
+        function createPeriodButtons() {
+            const container = document.getElementById('periodButtons');
+            container.innerHTML = '';
+
+            periods.forEach(period => {
+                const btn = document.createElement('button');
+                btn.className = 'period-btn' + (period.label === 'ALL' ? ' active' : '');
+                btn.textContent = period.label;
+                btn.onclick = () => displayChartForPeriod(period.label);
+                container.appendChild(btn);
+            });
+        }
+
+        function getFilteredData(periodLabel) {
+            if (periodLabel === 'ALL') {
+                return { dates: allDates, values: allValues };
+            }
+
+            const period = periods.find(p => p.label === periodLabel);
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - period.days);
+
+            const filtered = { dates: [], values: [] };
+
+            for (let i = 0; i < allDates.length; i++) {
+                const date = new Date(allDates[i]);
+                if (date >= cutoffDate) {
+                    filtered.dates.push(allDates[i]);
+                    filtered.values.push(allValues[i]);
+                }
+            }
+
+            return filtered;
+        }
+
+        function displayChartForPeriod(periodLabel) {
+            const filtered = getFilteredData(periodLabel);
+            const dates = filtered.dates.map(d => formatDate(d));
+            const values = filtered.values;
+
+            currentDisplayedDates = filtered.dates;
+            currentDisplayedValues = values;
+            hasManualSelection = false;
+            document.getElementById('clearSelectionBtn').style.display = 'none';
+
+            displayChart(dates, values);
+            updateStats(values);
+            updatePeriodButtons(periodLabel);
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        }
+
+        function updateStats(values) {
+            // Current profit always shows the very latest value
+            const latestValue = allValues[allValues.length - 1];
+            document.getElementById('currentValue').textContent = latestValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+            // Period stats based on selected/filtered data
+            const periodStartValue = values[0];
+            const periodEndValue = values[values.length - 1];
+            const periodChange = periodEndValue - periodStartValue;
+            const periodChangePercent = ((periodChange / periodStartValue) * 100).toFixed(2);
+            const periodHigh = Math.max(...values);
+            const periodLow = Math.min(...values);
+
+            const isPositive = periodChange >= 0;
+
+            // Display period range as "start - end"
+            document.getElementById('periodRange').textContent = `${periodStartValue.toLocaleString('en-US', { maximumFractionDigits: 2 })} - ${periodEndValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+
+            // Display period change with percentage in brackets
+            const periodChangeEl = document.getElementById('periodChange');
+            periodChangeEl.className = `info-value change ${isPositive ? 'positive' : 'negative'}`;
+            periodChangeEl.textContent = `${isPositive ? '+' : ''}${periodChange.toLocaleString('en-US', { maximumFractionDigits: 2 })} (${isPositive ? '+' : ''}${periodChangePercent}%)`;
+
+            // Display period high and low
+            document.getElementById('periodHigh').textContent = periodHigh.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            document.getElementById('periodLow').textContent = periodLow.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+            document.getElementById('stats').style.display = 'block';
+        }
+
+        function updatePeriodButtons(activeLabel) {
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === activeLabel);
+            });
+        }
+
+        function clearSelection() {
+            hasManualSelection = false;
+            document.getElementById('clearSelectionBtn').style.display = 'none';
+            displayChartForPeriod('ALL');
+        }
+
+        function displayChart(dates, values) {
+            const ctx = document.getElementById('chart').getContext('2d');
+
+            // Hide loading message and show canvas
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('chart').style.display = 'block';
+
+            // Destroy existing chart if it exists
+            if (chart) {
+                chart.destroy();
+            }
+
+            // Determine color based on trend
+            const isPositive = values[values.length - 1] >= values[0];
+            const lineColor = isPositive ? '#0f9d58' : '#d33b27';
+            const backgroundColor = isPositive ? 'rgba(15, 157, 88, 0.1)' : 'rgba(211, 59, 39, 0.1)';
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Value',
+                        data: values,
+                        borderColor: lineColor,
+                        backgroundColor: backgroundColor,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: lineColor,
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(32, 33, 36, 0.9)',
+                            padding: 12,
+                            titleFont: { size: 14, weight: '500' },
+                            bodyFont: { size: 13 },
+                            displayColors: false,
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Value: ' + context.parsed.y.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                font: { size: 12, weight: '500' },
+                                color: '#5f6368',
+                                maxRotation: 45,
+                                minRotation: 0,
+                            }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                font: { size: 12, weight: '500' },
+                                color: '#5f6368',
+                                callback: function(value) {
+                                    return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Add mouse event listeners for selection
+            setupChartSelection(ctx.canvas, dates, values);
+        }
+
+        function setupChartSelection(canvas, dates, values) {
+            canvas.style.cursor = 'crosshair';
+            const overlay = document.getElementById('selectionOverlay');
+            const chartContainer = canvas.parentElement;
+
+            function getX(e) {
+                const rect = canvas.getBoundingClientRect();
+                if (e.touches) {
+                    return e.touches[0].clientX - rect.left;
+                }
+                return e.clientX - rect.left;
+            }
+
+            function startSelection(e) {
+                isSelecting = true;
+                selectionStart = getX(e);
+            }
+
+            function moveSelection(e) {
+                if (!isSelecting) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const currentX = getX(e);
+                const startX = Math.min(selectionStart, currentX);
+                const endX = Math.max(selectionStart, currentX);
+
+                const canvasLeft = chart.chartArea.left;
+                const canvasTop = chart.chartArea.top;
+                const canvasWidth = chart.chartArea.width;
+                const canvasHeight = chart.chartArea.height;
+
+                // Calculate positions relative to canvas
+                const highlightStart = Math.max(canvasLeft, startX);
+                const highlightEnd = Math.min(canvasLeft + canvasWidth, endX);
+                const highlightWidth = Math.max(0, highlightEnd - highlightStart);
+
+                if (highlightWidth > 0) {
+                    // Position overlay
+                    overlay.style.left = highlightStart + 'px';
+                    overlay.style.top = canvasTop + 'px';
+                    overlay.style.width = highlightWidth + 'px';
+                    overlay.style.height = canvasHeight + 'px';
+                    overlay.style.display = 'block';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            }
+
+            function endSelection(e) {
+                if (!isSelecting) return;
+                isSelecting = false;
+                overlay.style.display = 'none';
+
+                const selectionEnd = getX(e);
+                const startX = Math.min(selectionStart, selectionEnd);
+                const endX = Math.max(selectionStart, selectionEnd);
+
+                // Ignore small clicks (less than 20px)
+                if (Math.abs(selectionEnd - selectionStart) < 20) {
+                    return;
+                }
+
+                const xScale = chart.scales.x;
+                const canvasWidth = chart.chartArea.width;
+                const canvasLeft = chart.chartArea.left;
+
+                // Calculate which data indices correspond to the selection
+                const startIndex = Math.round(((startX - canvasLeft) / canvasWidth) * (dates.length - 1));
+                const endIndex = Math.round(((endX - canvasLeft) / canvasWidth) * (dates.length - 1));
+
+                if (startIndex >= 0 && endIndex < dates.length && startIndex !== endIndex) {
+                    const selectedIndices = [Math.max(0, startIndex), Math.min(dates.length - 1, endIndex)];
+                    const minIdx = Math.min(...selectedIndices);
+                    const maxIdx = Math.max(...selectedIndices);
+
+                    // Extract selected date range from original all data
+                    const selectedDates = currentDisplayedDates.slice(minIdx, maxIdx + 1);
+                    const selectedValues = currentDisplayedValues.slice(minIdx, maxIdx + 1);
+
+                    if (selectedValues.length > 0) {
+                        hasManualSelection = true;
+                        document.getElementById('clearSelectionBtn').style.display = 'inline-block';
+                        document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+
+                        const formattedDates = selectedDates.map((d, i) => {
+                            if (typeof d === 'string') return formatDate(d);
+                            return dates[minIdx + i];
+                        });
+                        displayChart(formattedDates, selectedValues);
+                        updateStats(selectedValues);
+                    }
+                }
+            }
+
+            // Mouse events
+            canvas.addEventListener('mousedown', startSelection);
+            canvas.addEventListener('mousemove', moveSelection);
+            canvas.addEventListener('mouseup', endSelection);
+            canvas.addEventListener('mouseleave', () => {
+                isSelecting = false;
+                overlay.style.display = 'none';
+            });
+
+            // Touch events for mobile
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startSelection(e);
+            }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                moveSelection(e);
+            }, { passive: false });
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                endSelection(e);
+            }, { passive: false });
+            canvas.addEventListener('touchcancel', () => {
+                isSelecting = false;
+                overlay.style.display = 'none';
+            });
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('chart').style.display = 'none';
+            document.getElementById('stats').style.display = 'none';
+        }
+
+        function updateRefreshInfo() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('refreshInfo').textContent = `Last updated: ${timeString}`;
+        }
+
+        // Fetch data on page load
+        window.addEventListener('load', fetchData);
+
+        // Setup clear selection button
+        document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
+
+        // Optional: Refresh data every minute (uncomment to enable)
+        // setInterval(fetchData, 60000);
+    </script>
+</body>
+</html>
