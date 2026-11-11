@@ -84,12 +84,6 @@
             border-bottom: 1px solid #dadce0;
         }
 
-        .stats {
-            margin-bottom: 24px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid #dadce0;
-        }
-
         .stats-top-row {
             display: flex;
             gap: 64px;
@@ -179,6 +173,12 @@
 
         .info-value.change.negative {
             color: #d33b27;
+        }
+
+        /* Red "(-x)" behind Period highest; the high itself stays black */
+        .below-high {
+            color: #d33b27;
+            margin-left: 6px;
         }
 
         .change-info {
@@ -487,8 +487,19 @@
             periodChangeEl.className = `info-value change ${isPositive ? 'positive' : 'negative'}`;
             periodChangeEl.textContent = `${isPositive ? '+' : ''}${periodChange.toLocaleString('en-US', { maximumFractionDigits: 2 })} (${isPositive ? '+' : ''}${periodChangePercent}%)`;
 
-            // Display period high and low
-            document.getElementById('periodHigh').textContent = periodHigh.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            // Period high stays black; the gap to current profit is shown in red brackets
+            const periodHighEl = document.getElementById('periodHigh');
+            periodHighEl.textContent = periodHigh.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+            const diffFromHigh = latestValue - periodHigh;
+            if (diffFromHigh < 0) {
+                const diffSpan = document.createElement('span');
+                diffSpan.className = 'below-high';
+                diffSpan.textContent = `(${diffFromHigh.toLocaleString('en-US', { maximumFractionDigits: 2 })})`;
+                periodHighEl.appendChild(diffSpan);
+            }
+
+            // Display period low
             document.getElementById('periodLow').textContent = periodLow.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
             document.getElementById('stats').style.display = 'block';
@@ -656,7 +667,9 @@
                 isSelecting = false;
                 overlay.style.display = 'none';
 
-                const selectionEnd = getX(e);
+                const selectionEnd = e.changedTouches
+                    ? e.changedTouches[0].clientX - canvas.getBoundingClientRect().left
+                    : getX(e);
                 const startX = Math.min(selectionStart, selectionEnd);
                 const endX = Math.max(selectionStart, selectionEnd);
 
